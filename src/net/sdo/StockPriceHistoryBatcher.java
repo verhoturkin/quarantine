@@ -4,29 +4,33 @@
 
 package net.sdo;
 
-import java.text.DateFormat;
-import java.text.NumberFormat;
-import java.text.ParseException;
-import java.util.Date;
-import java.util.Locale;
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
 import net.sdo.stock.StockPriceHistory;
 import net.sdo.stock.StockPriceUtils;
 import net.sdo.stockimpl.MockStockPriceEntityManagerFactory;
 import net.sdo.stockimpl.StockPriceHistoryImpl;
 import net.sdo.stockimpl.StockPriceHistoryLogger;
 
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.text.DateFormat;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.util.Date;
+import java.util.Locale;
+
 public class StockPriceHistoryBatcher {
     private static final NumberFormat nf =
-        NumberFormat.getCurrencyInstance(Locale.US);
+            NumberFormat.getCurrencyInstance(Locale.US);
     private static int numStocks;
     private static int mode;
 
 
     private static EntityManagerFactory emf;
     private static EntityManager em;
+
     private static void initEM() {
         String s = System.getProperty("MockEntityManager");
         if (s != null) {
@@ -41,6 +45,13 @@ public class StockPriceHistoryBatcher {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws ParseException {
+        PrintStream original = System.out;
+        System.setOut(new PrintStream(new OutputStream() {
+            public void write(int b) {
+                //DO NOTHING
+            }
+        }));
+
         long start = System.currentTimeMillis();
         DateFormat df = DateFormat.getDateInstance(DateFormat.SHORT, Locale.US);
         Date startDate;
@@ -57,15 +68,14 @@ public class StockPriceHistoryBatcher {
         }
         if (args.length < 3) {
             mode = 0;
-        } 
-        else {
+        } else {
             mode = Integer.parseInt(args[3]);
         }
         if (args.length > 4) {
             save = Integer.parseInt(args[4]);
         }
         System.out.println("Num stocks " + numStocks + " " +
-                           startDate + " " + endDate);
+                startDate + " " + endDate);
 
         initEM();
         StockPriceHistory[] saved = new StockPriceHistory[save];
@@ -74,19 +84,19 @@ public class StockPriceHistoryBatcher {
             StockPriceHistory sph;
             if (mode == 0) {
                 sph = new StockPriceHistoryImpl(symbol, startDate, endDate, em);
-            }
-            else {
+            } else {
                 sph = new StockPriceHistoryLogger(symbol, startDate,
-                              endDate, em);
+                        endDate, em);
             }
             System.out.println("For " + sph.getSymbol()
-                + ": High " + nf.format(sph.getHighPrice())
-                + ", Low " + nf.format(sph.getLowPrice())
-                + ", Standard Deviation: " + sph.getStdDev().doubleValue());
+                    + ": High " + nf.format(sph.getHighPrice())
+                    + ", Low " + nf.format(sph.getLowPrice())
+                    + ", Standard Deviation: " + sph.getStdDev().doubleValue());
             if (save > 0) {
                 saved[i % save] = sph;
             }
         }
+        System.setOut(original);
         long end = System.currentTimeMillis();
         System.out.println(end - start);
     }
